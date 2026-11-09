@@ -1,0 +1,25 @@
+name: Renovar token do Instagram
+
+# O token vale 60 dias. Renovar toda segunda-feira mantém ele sempre válido.
+on:
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+jobs:
+  renovar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - id: renovar
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+        run: python publicar.py renovar-token
+      - name: Avisar se o token mudou
+        if: steps.renovar.outputs.token_mudou == 'true'
+        run: |
+          echo "::error::O Instagram devolveu um token novo. Gere um token pelo painel da Meta e atualize o segredo IG_TOKEN (veja o README)."
+          exit 1

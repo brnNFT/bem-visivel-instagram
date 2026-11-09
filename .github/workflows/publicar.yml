@@ -1,0 +1,69 @@
+name: Publicar no Instagram
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # a cada 15 minutos (o GitHub pode atrasar alguns minutos)
+  workflow_dispatch:
+    inputs:
+      simular:
+        description: "Só simular (não publica nada)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publicar-instagram
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Conferir a fila
+        run: python publicar.py verificar || true
+
+      - name: Converter imagens para JPEG
+        run: python publicar.py preparar
+
+      - name: Salvar os JPEG no repositório (precisam de endereço público)
+        run: |
+          git config user.name "bem-visivel-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A fila
+          git diff --cached --quiet || { git commit -m "Prepara imagens JPEG"; git push; }
+
+      - name: Testar o token (só na simulação)
+        if: inputs.simular == true
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+        run: python publicar.py limite
+
+      - name: Publicar o que passou do horário
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+        run: |
+          export IG_BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/$(git rev-parse HEAD)"
+          if [ "${{ inputs.simular }}" = "true" ]; then
+            python publicar.py publicar --simular
+          else
+            python publicar.py publicar
+          fi
+
+      - name: Registrar o resultado (mover para publicados/ ou guardar o erro)
+        if: always()
+        run: |
+          git add -A fila publicados
+          git diff --cached --quiet || { git commit -m "Atualiza a fila de publicação"; git pull --rebase; git push; }
