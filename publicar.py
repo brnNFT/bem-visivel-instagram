@@ -461,6 +461,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.comando == "publicar":
+        posts, _ = ler_fila()
+        if not any(p.quando <= momento and not p.tem_erro_anterior for p in posts):
+            print("Nada para publicar agora.")  # sem post na hora, nem precisa de token
+            return 0
         cliente = InstagramSimulado() if args.simular else cliente_real()
         return publicar_pendentes(cliente, args.base_url, momento, simular=args.simular)
 
