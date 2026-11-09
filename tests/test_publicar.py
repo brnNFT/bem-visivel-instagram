@@ -152,3 +152,40 @@ class TestFila(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestModoFacebook(unittest.TestCase):
+    class APIPagina(pub.Instagram):
+        def __init__(self):
+            super().__init__("EAAtokenDePagina", espera_s=0)
+            self.chamadas = []
+
+        def _pedir(self, metodo, caminho, params=None, base=None):
+            self.chamadas.append((metodo, caminho, dict(params or {})))
+            if caminho == "me":
+                return {"name": "Bem Visível", "id": "P1",
+                        "instagram_business_account": {"id": "17841", "username": "bem.visivel"}}
+            if caminho.endswith("/media"):
+                return {"id": "C1"}
+            if caminho.endswith("/media_publish"):
+                return {"id": "M1"}
+            if params and params.get("fields") == "permalink":
+                return {"permalink": "https://www.instagram.com/p/x/"}
+            return {"status_code": "FINISHED"}
+
+    def test_detecta_modo_pelo_token(self):
+        self.assertEqual(pub.Instagram("EAAabc").modo, "facebook")
+        self.assertEqual(pub.Instagram("IGAabc").modo, "instagram")
+        self.assertIn("graph.facebook.com", pub.Instagram("EAAabc").base)
+        self.assertIn("graph.instagram.com", pub.Instagram("IGAabc").base)
+
+    def test_descobre_conta_pela_pagina_e_publica(self):
+        api = self.APIPagina()
+        self.assertEqual(api.user_id(), "17841")
+        r = api.publicar(["https://x/01.jpg"], "oi")
+        self.assertEqual(r["media_id"], "M1")
+        self.assertIn(("POST", "17841/media_publish", {"creation_id": "C1"}), api.chamadas)
+
+    def test_renovar_token_de_pagina_so_confere(self):
+        api = self.APIPagina()
+        self.assertEqual(api.renovar_token()["conta"], "bem.visivel")

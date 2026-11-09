@@ -31,26 +31,31 @@ São uns 20 minutos. Use o computador, porque o painel da Meta é ruim no celula
 
 ### 1. Criar o app na Meta
 
-A conta @bem.visivel já é profissional, que é o que a API exige. **Não precisa de Página do Facebook**: usamos o modo "API do Instagram com login do Instagram".
+A conta @bem.visivel já é profissional, que é o que a API exige.
 
-1. Entre em [developers.facebook.com](https://developers.facebook.com/) com uma conta do Facebook e aceite virar desenvolvedor (é gratuito e não aparece em lugar nenhum público). Se pedir, confirme o e-mail e o celular.
-2. Clique em **Meus apps → Criar app**.
-3. Nome do app: `Bem Visível Publicador`. E-mail: `contato.bemvisivel@gmail.com`.
-4. No caso de uso, escolha **"Gerenciar mensagens e conteúdo no Instagram"** (em inglês, *Manage messaging & content on Instagram*). Se perguntar o tipo, escolha **Empresa**. Não precisa ligar a um portfólio empresarial.
-5. Conclua a criação. O app fica em **modo de desenvolvimento**, e é assim que ele deve ficar.
+1. Entre em [developers.facebook.com](https://developers.facebook.com/) com uma conta do Facebook e aceite virar desenvolvedor (é gratuito e não aparece em lugar nenhum público).
+2. Clique em **Meus apps → Criar app**. Nome: `Bem Visível Publicador`. E-mail: `contato.bemvisivel@gmail.com`.
+3. No caso de uso, escolha **"Gerenciar mensagens e conteúdo no Instagram"**. Conclua. O app fica em **modo de desenvolvimento**, e é assim que ele deve ficar.
 
-### 2. Ligar o @bem.visivel e gerar o token
+### 2. Gerar o token
 
-1. No painel do app, abra **Casos de uso → Instagram → Personalizar → Configuração da API com login do Instagram** (*API setup with Instagram login*).
-2. Confira que as permissões `instagram_business_basic` e `instagram_business_content_publish` estão na lista.
-3. Na etapa **"Gerar tokens de acesso"**, clique em **Adicionar conta** e entre com o @bem.visivel. Aceite as permissões.
-   - Se aparecer que a conta precisa de uma função no app: vá em **Funções do app → Funções → Adicionar pessoas → Testador do Instagram**, digite `bem.visivel`, e aceite o convite no Instagram em **Configurações → Permissões de sites → Apps e sites → Convites de testador**. Depois volte ao passo 3.
-4. Clique em **Gerar token** ao lado da conta e copie o token (um texto longo que começa com `IG`). Ele vale **60 dias** e é renovado sozinho por este repositório.
-5. Anote também o número que aparece ao lado do nome da conta (é o ID da conta). É opcional.
+Há dois caminhos. O robô aceita os dois e descobre sozinho qual foi usado.
 
-**Esse token dá poder de publicar na conta. Não mande por e-mail, WhatsApp ou chat, nem coloque em arquivo do repositório.** Ele vai só no cofre do GitHub, no passo seguinte.
+**Caminho A: login do Instagram (mais simples, se a Meta deixar).** Em **Casos de uso → Personalizar → API setup with Unified login**, a Meta pede um *portfólio empresarial*. Se você conseguir criar ou selecionar um, siga: **Gerar tokens de acesso → Adicionar conta → @bem.visivel → Gerar token**. O token começa com `IG` e vale 60 dias; o robô renova sozinho.
 
-Não precisa enviar o app para revisão da Meta (App Review): como ele só publica na nossa própria conta, que tem função no app, o modo de desenvolvimento basta.
+**Caminho B: Página do Facebook (quando a Meta bloqueia o portfólio).**
+1. Crie uma Página do Facebook em [facebook.com/pages/create](https://www.facebook.com/pages/create): nome **Bem Visível**, categoria **Organização sem fins lucrativos**.
+2. Ligue a Página ao Instagram: no app do Instagram, em @bem.visivel, **Editar perfil → Página → Conectar uma Página do Facebook existente**.
+3. No painel da Meta, abra **Ferramentas → Explorador da Graph API** (*Graph API Explorer*).
+   - Em **App da Meta**, escolha `Bem Visível Publicador`.
+   - Em **Permissões**, adicione: `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`, `business_management`.
+   - Clique em **Generate Access Token**, entre no Facebook, escolha a Página Bem Visível e a conta @bem.visivel, e aceite tudo.
+4. Esse token dura só 1 hora. Para estender: abra **Ferramentas → Depurador de token de acesso**, cole o token, clique em **Depurar** e depois em **Estender token de acesso**. Copie o token estendido (vale 60 dias).
+5. Volte ao Explorador, cole o token estendido no campo do token e, no menu **Usuário ou Página**, escolha a Página **Bem Visível**. O campo passa a mostrar o **token da Página**, que começa com `EAA` e **não vence**. Copie este.
+
+Em qualquer caminho: **o token dá poder de publicar na conta. Não mande por e-mail, WhatsApp ou chat, nem coloque em arquivo do repositório.** Ele vai só no cofre do GitHub.
+
+Não precisa enviar o app para revisão da Meta: como ele só publica na nossa própria conta, o modo de desenvolvimento basta.
 
 ### 3. Guardar o token no GitHub
 
@@ -92,6 +97,6 @@ Nenhum desses comandos publica nada nem precisa de token.
 - **As imagens precisam estar num endereço público** na hora da publicação, porque é o Instagram que vai buscá-las. Por isso o repositório é público. Quem olhar o repositório vê os posts agendados antes da hora, o que não é problema para conteúdo que vai ser público de qualquer jeito. **Nunca coloque aqui comprovantes com dados pessoais sem tarja.**
 - **Atraso de alguns minutos**: o GitHub às vezes começa a rodada agendada 5 a 20 minutos depois.
 - **Não publica**: stories (a API até aceita, mas este robô ainda não faz), filtros, música, marcação de produtos, colaboração e marcação de pessoas na foto. Para isso, use o app do Instagram.
-- **Token de 60 dias**: o robô renova toda segunda-feira. Se a Meta um dia devolver um token diferente, a execução "Renovar token" falha e avisa por e-mail; aí é só gerar um novo (passo 2) e trocar o segredo.
+- **Token**: no caminho A ele vale 60 dias e o robô renova toda segunda-feira; se a Meta devolver um token diferente, a execução "Renovar token" falha e avisa por e-mail. No caminho B o token da Página não vence; a mesma execução só confere se continua válido.
 - **Pausa por inatividade**: o GitHub desliga tarefas agendadas de repositórios sem nenhuma alteração por 60 dias. Cada post publicado conta como alteração, então isso só acontece se a página ficar dois meses sem post. Se acontecer, a aba Actions mostra um botão para religar.
 - **Plano B**: o Meta Business Suite (business.facebook.com) também agenda posts e carrosséis, de graça, à mão.

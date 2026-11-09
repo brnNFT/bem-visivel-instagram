@@ -15,7 +15,9 @@ Comandos:
     python publicar.py limite             mostra quantos posts a API ainda aceita hoje
 
 Variáveis de ambiente (nunca coloque o token em arquivo do repositório):
-    IG_TOKEN        token de acesso do Instagram (obrigatório para publicar)
+    IG_TOKEN        token de acesso (obrigatório para publicar). Pode ser o token do
+                    login do Instagram (começa com IG) ou um token de Página do
+                    Facebook ligada à conta (começa com EAA)
     IG_USER_ID      id da conta (opcional; descoberto pelo token)
     IG_BASE_URL     endereço público onde as imagens ficam acessíveis,
                     por exemplo https://raw.githubusercontent.com/usuario/repo/main
@@ -222,12 +224,20 @@ def preparar(post: Post) -> list[Path]:
 
 
 class Instagram:
-    """Cliente mínimo da API do Instagram com login do Instagram (graph.instagram.com)."""
+    """Cliente mínimo da API do Instagram.
+
+    Dois modos, escolhidos pelo começo do token:
+    - "instagram": token gerado no login do Instagram (começa com "IG"), em graph.instagram.com;
+    - "facebook": token de Página do Facebook (começa com "EAA"), em graph.facebook.com.
+      A Página precisa estar ligada à conta do Instagram.
+    """
 
     def __init__(self, token: str, versao: str = "v25.0", user_id: str | None = None,
-                 espera_s: float = 10, tentativas_status: int = 30):
+                 espera_s: float = 10, tentativas_status: int = 30, modo: str | None = None):
         self.token = token
-        self.base = f"https://graph.instagram.com/{versao}"
+        self.modo = modo or ("facebook" if token.startswith("EAA") else "instagram")
+        host = "graph.facebook.com" if self.modo == "facebook" else "graph.instagram.com"
+        self.base = f"https://{host}/{versao}"
         self.espera_s = espera_s
         self.tentativas_status = tentativas_status
         self._user_id = user_id
@@ -259,18 +269,31 @@ class Instagram:
     # --- conta
     def user_id(self) -> str:
         if not self._user_id:
-            eu = self._pedir("GET", "me", {"fields": "user_id,username"})
-            self._user_id = str(eu.get("user_id") or eu["id"])
+            self._user_id = str(self.conta()["user_id"])
         return self._user_id
 
     def conta(self) -> dict:
-        return self._pedir("GET", "me", {"fields": "user_id,username"})
+        """Devolve {"user_id": id da conta do Instagram, "username": @}."""
+        if self.modo == "facebook":
+            pagina = self._pedir("GET", "me", {"fields": "name,instagram_business_account{id,username}"})
+            ig = pagina.get("instagram_business_account")
+            if not ig:
+                raise ErroPublicacao(
+                    f"a Página do Facebook '{pagina.get('name')}' não está ligada a nenhuma conta do Instagram")
+            return {"user_id": ig["id"], "username": ig.get("username"), "pagina": pagina.get("name")}
+        eu = self._pedir("GET", "me", {"fields": "user_id,username"})
+        return {"user_id": eu.get("user_id") or eu["id"], "username": eu.get("username")}
 
     def limite(self) -> dict:
         return self._pedir("GET", f"{self.user_id()}/content_publishing_limit",
                            {"fields": "config,quota_usage"})
 
     def renovar_token(self) -> dict:
+        if self.modo == "facebook":
+            # Token de Página gerado a partir de um token de usuário de longa duração não vence.
+            # Só conferimos que continua válido.
+            conta = self.conta()
+            return {"access_token": self.token, "expires_in": 0, "conta": conta.get("username")}
         return self._pedir("GET", "refresh_access_token", {"grant_type": "ig_refresh_token"},
                            base="https://graph.instagram.com")
 
@@ -471,6 +494,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.comando == "renovar-token":
         cli = cliente_real()
         r = cli.renovar_token()
+        if cli.modo == "facebook":
+            print(f"Token de Página válido (conta @{r.get('conta')}). Esse tipo de token não vence.")
+            return 0
         dias = int(r.get("expires_in", 0)) // 86400
         novo = r.get("access_token")
         print(f"Token renovado: vale por mais {dias} dias.")
@@ -488,7 +514,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.comando == "limite":
         cli = cliente_real()
-        print("Conta:", cli.conta().get("username"))
+        conta = cli.conta()
+        print(f"Modo: {cli.modo}. Conta: @{conta.get('username')}" + (f" (Página: {conta['pagina']})" if conta.get("pagina") else ""))
         print(json.dumps(cli.limite(), indent=2))
         return 0
     return 0
