@@ -1,0 +1,3 @@
+23/11/2026 22:13: a API respondeu 400: Error validating access token: Sessions for the user are not allowed because the user is not a confirmed user.
+
+Corrija o problema e apague este arquivo para o post tentar de novo na próxima rodada.
